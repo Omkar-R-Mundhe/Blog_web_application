@@ -4,11 +4,10 @@ const express = require('express');
 const expressLayout = require('express-ejs-layouts');
 const methodOverride = require('method-override');
 const MongoStore = require('connect-mongo');
-
 const connectDB = require('./server/config/db');
-
+const cookieParser = require("cookie-parser");
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 8080;
   
 // Connect to DB
 connectDB();
@@ -17,6 +16,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(methodOverride('_method'));
 app.use(express.static('public'));
+app.use(cookieParser());
 
 
 

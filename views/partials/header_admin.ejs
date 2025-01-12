@@ -17,9 +17,13 @@
   </nav>
 
   <div class="header__button">
-    <a href="/admin">
-      Logout
-    </a>
+    
+     <form id="logout-form" action="/logout" method="POST" style="display: none;">
+    <button type="submit">Logout</button>
+  </form>
+  <a href="#" onclick="document.getElementById('logout-form').submit(); return false;">
+    Logout
+  </a>
   </div>
 
 </header>

@@ -4,6 +4,8 @@ const Post = require('../models/Post');
 const User = require('../models/User');
 const bcrypt = require('bcrypt');
 const adminLayout = '../views/layouts/admin';
+const jwt = require("jsonwebtoken");
+const authenticateToken = require("../middleware/authToken.js");
 
 
 // GET *admin page
@@ -52,27 +54,23 @@ router.post('/register', async (req, res) => {
 
 // POST * admin login check 
 router.post('/admin', async (req, res) => {
-  try {
-    const { username, password } = req.body;
-    
-    const user = await User.findOne( { username } );
+  const { username, password } = req.body;
 
-    if(!user) {
-      return res.status(401).json( { message: 'Invalid credentials' } );
-    }
-
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-
-    if(!isPasswordValid) {
-      return res.status(401).json( { message: 'Invalid credentials' } );
-    }
-
-
-    res.redirect('/dashboard');
-
-  } catch (error) {
-    console.log(error);
+  // Validate user credentials (this is just an example, implement your own logic)
+  
+  const user = await User.findOne({ username });
+  const isValid = await bcrypt.compare(password, user.password);
+  if (!user || !isValid) {
+    return res.status(401).json({ message: 'Invalid credentials' });
   }
+
+  // Generate JWT token
+  const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+  // Send token as a cookie
+  res.cookie('token', token, { httpOnly: true });
+  
+  res.redirect('/dashboard');
 });
 
 
@@ -80,14 +78,14 @@ router.post('/admin', async (req, res) => {
 
 //  GET * Admin Dashboard
 
-router.get('/dashboard',  async (req, res) => {
+router.get('/dashboard', authenticateToken, async (req, res) => {
   try {
     const locals = {
       title: 'Dashboard',
       description: 'Simple Blog created with NodeJs, Express & MongoDb.'
     }
 
-    const data = await Post.find();
+    const data = await Post.find({ user: req.user.id })
     res.render('admin/dashboard', {
       locals,
       data,
@@ -104,7 +102,7 @@ router.get('/dashboard',  async (req, res) => {
 
 //  GET * Admin - Create New Post
 
-router.get('/add-post',  async (req, res) => {
+router.get('/add-post',authenticateToken,  async (req, res) => {
   try {
     const locals = {
       title: 'Add Post',
@@ -127,29 +125,24 @@ router.get('/add-post',  async (req, res) => {
 
 //  POST * Admin - Create New Post
 
-router.post('/add-post',  async (req, res) => {
+router.post("/add-post", authenticateToken, async (req, res) => {
   try {
-    try {
-     
-      await Post.create({
-        title: req.body.title,
-        body: req.body.body
-      });
-      
-      res.redirect('/dashboard');
-    } catch (error) {
-      console.log(error);
-    }
-
+    await Post.create({
+      title: req.body.title,
+      body: req.body.body,
+      user: req.user.id,
+    });
+    res.redirect("/dashboard");
   } catch (error) {
     console.log(error);
+    res.status(500).json({ message: "Internal server error" });
   }
 });
 
 
 // GET *Admin - edit  Post
 
-router.get('/edit-post/:id',  async (req, res) => {
+router.get('/edit-post/:id', authenticateToken, async (req, res) => {
   try {
 
     const locals = {
@@ -207,13 +200,11 @@ router.delete('/delete-post/:id',  async (req, res) => {
 
 
 // GET *logout
-router.get('/admin', (req, res) => {
-  const locals = {
-    title: "Edit Post",
-    description: "Free NodeJs User Management System",
-  };
-
-  res.render('admin/index', { locals, layout: adminLayout });});
+router.post("/logout", (req, res) => {
+  console.log("Logging out, clearing token");
+  res.clearCookie("token");
+  res.redirect("/admin");
+});
 
 
 module.exports = router;
